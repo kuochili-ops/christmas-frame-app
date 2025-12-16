@@ -94,7 +94,7 @@ if uploaded:
 
         # 🔑 重新建立 draw，確保文字畫在黑框上方
         draw = ImageDraw.Draw(composed)
-        draw.text((x, y), message, font=font, fill=(255,255,255,255))
+        draw.text((x, y-5), message, font=font, fill=(255,255,255,255))
 
     st.image(composed, caption=f"{orientation}邊框 + 訊息", use_column_width=True)
     buf = io.BytesIO()
