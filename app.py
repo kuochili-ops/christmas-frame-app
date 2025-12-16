@@ -5,50 +5,6 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from utils import get_message_for_today, fit_text_to_width
 
-drag_zoom_js = """
-<script>
-let scale = 1.0;
-let posX = 0;
-let posY = 0;
-let startX = 0;
-let startY = 0;
-let dragging = false;
-
-const img = document.getElementById("edit-img");
-
-function updateTransform() {
-    img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-}
-
-// 滑鼠拖曳
-img.addEventListener("mousedown", (e) => {
-    dragging = true;
-    startX = e.clientX - posX;
-    startY = e.clientY - posY;
-});
-
-document.addEventListener("mouseup", () => dragging = false);
-
-document.addEventListener("mousemove", (e) => {
-    if (!dragging) return;
-    posX = e.clientX - startX;
-    posY = e.clientY - startY;
-    updateTransform();
-});
-
-// 滾輪縮放
-img.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    scale = Math.min(Math.max(0.3, scale + delta), 3.0);
-    updateTransform();
-});
-
-// 手機觸控
-let lastDist = 0;
-
-img.addEventListener("touchstart
-
 # -------------------------------
 # Streamlit 基本設定
 # -------------------------------
