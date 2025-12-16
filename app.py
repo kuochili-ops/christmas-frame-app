@@ -39,15 +39,26 @@ frame = Image.open(frame_path).convert("RGBA")
 fw, fh = frame.size
 
 # -------------------------------
+# 扁平化調整面板（在預覽下方）
+# -------------------------------
+st.subheader("⚙️ 圖片調整")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
+with col2:
+    offset_x = st.slider("水平移動", -500, 500, 0, key="offset_x")
+with col3:
+    offset_y = st.slider("垂直移動", -500, 500, 0, key="offset_y")
+
+custom_message = st.text_input("訊息文字（留空則使用今日訊息）", "")
+final_message = custom_message if custom_message.strip() else message_today
+
+# -------------------------------
 # 處理使用者圖片（維持比例縮放）
 # -------------------------------
 user_img = Image.open(uploaded).convert("RGBA")
 uw, uh = user_img.size
-
-# 預設縮放比例
-scale = 100
-offset_x = 0
-offset_y = 0
 
 scale_factor = scale / 100
 new_w = int(uw * scale_factor)
@@ -68,9 +79,6 @@ composed = Image.alpha_composite(canvas, frame)
 # -------------------------------
 # 加上訊息文字
 # -------------------------------
-custom_message = st.text_input("訊息文字（留空則使用今日訊息）", "")
-final_message = custom_message if custom_message.strip() else message_today
-
 def draw_text_with_outline(draw, x, y, text, font):
     outline_color = (255, 0, 0, 255)
     for dx in [-2, -1, 0, 1, 2]:
@@ -117,19 +125,6 @@ if add_message and final_message:
 # -------------------------------
 st.subheader("🖼️ 合成預覽")
 st.image(composed, caption="合成預覽", use_column_width=True)
-
-# -------------------------------
-# 扁平化調整面板（在預覽下方）
-# -------------------------------
-st.subheader("⚙️ 圖片調整")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
-with col2:
-    offset_x = st.slider("水平移動", -500, 500, 0, key="offset_x")
-with col3:
-    offset_y = st.slider("垂直移動", -500, 500, 0, key="offset_y")
 
 # -------------------------------
 # 下載按鈕
