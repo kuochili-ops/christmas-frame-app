@@ -118,7 +118,7 @@ st.download_button(
 )
 
 # -------------------------------
-# 加入前端 JS：支援手機觸控拖曳 + 縮放 + 旋轉
+# 加入前端 JS：支援手機觸控拖曳 + 縮放 + 旋轉（僅在排版模式下）
 # -------------------------------
 drag_zoom_js = f"""
 <script>
@@ -127,6 +127,10 @@ let posX = 0, posY = 0, scale = 1.0, rotation = 0;
 let startX = 0, startY = 0, dragging = false;
 let lastDist = 0, lastAngle = 0;
 let editMode = {"true" if edit_mode else "false"};
+
+function updateTransform() {{
+  img.style.transform = "translate(" + posX + "px," + posY + "px) scale(" + scale + ") rotate(" + rotation + "deg)";
+}}
 
 // 滑鼠拖曳
 img.addEventListener("mousedown", (e) => {{
@@ -140,7 +144,7 @@ document.addEventListener("mousemove", (e) => {{
   if (!dragging || !editMode) return;
   posX = e.clientX - startX;
   posY = e.clientY - startY;
-  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+  updateTransform();
 }});
 
 // 滾輪縮放
@@ -149,7 +153,7 @@ img.addEventListener("wheel", (e) => {{
   e.preventDefault();
   const delta = e.deltaY > 0 ? -0.05 : 0.05;
   scale = Math.min(Math.max(0.3, scale + delta), 3.0);
-  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+  updateTransform();
 }});
 
 // 手機觸控
@@ -174,7 +178,7 @@ img.addEventListener("touchmove", (e) => {{
     lastDist = dist;
     lastAngle = angle;
   }}
-  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+  updateTransform();
 }});
 img.addEventListener("touchend", () => {{ lastDist = 0; lastAngle = 0; }});
 </script>
