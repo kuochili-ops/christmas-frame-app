@@ -13,7 +13,7 @@ FRAME_HORIZONTAL_PATH = os.path.join(ASSETS_DIR, "frame_horizontal.png")
 FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-Regular.ttf")
 
 st.title("🎄 聖誕相片邊框生成器")
-st.caption("上傳照片 → 用控制鍵調整 → 套用邊框 → 自動顯示祝福")
+st.caption("上傳照片 → 預覽 → 下方控制鍵調整 → 套用邊框 → 自動顯示祝福")
 
 # 今日訊息
 tz_offset_hours = 8
@@ -32,17 +32,6 @@ if not uploaded:
     st.stop()
 
 # -------------------------------
-# 左側控制鍵
-# -------------------------------
-st.subheader("⚙️ 圖片調整")
-scale = st.slider("縮放比例（%）", 50, 200, 100)
-offset_x = st.slider("水平移動", -500, 500, 0)
-offset_y = st.slider("垂直移動", -500, 500, 0)
-
-custom_message = st.text_input("自訂訊息（留空則使用今日訊息）", "")
-final_message = custom_message if custom_message.strip() else message_today
-
-# -------------------------------
 # 載入邊框
 # -------------------------------
 frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
@@ -55,6 +44,11 @@ fw, fh = frame.size
 user_img = Image.open(uploaded).convert("RGBA")
 uw, uh = user_img.size
 
+# 預設縮放比例
+scale = 100
+offset_x = 0
+offset_y = 0
+
 scale_factor = scale / 100
 new_w = int(uw * scale_factor)
 new_h = int(uh * scale_factor)   # ✅ 維持原始比例
@@ -62,10 +56,8 @@ resized = user_img.resize((new_w, new_h), Image.LANCZOS)
 
 # 建立空白畫布
 canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
-
 paste_x = (fw - new_w) // 2 + offset_x
 paste_y = (fh - new_h) // 2 + offset_y
-
 canvas.paste(resized, (paste_x, paste_y), resized)
 
 # -------------------------------
@@ -74,8 +66,11 @@ canvas.paste(resized, (paste_x, paste_y), resized)
 composed = Image.alpha_composite(canvas, frame)
 
 # -------------------------------
-# 白字 + 紅色描邊
+# 加上訊息文字
 # -------------------------------
+custom_message = st.text_input("訊息文字（留空則使用今日訊息）", "")
+final_message = custom_message if custom_message.strip() else message_today
+
 def draw_text_with_outline(draw, x, y, text, font):
     outline_color = (255, 0, 0, 255)
     for dx in [-2, -1, 0, 1, 2]:
@@ -83,9 +78,6 @@ def draw_text_with_outline(draw, x, y, text, font):
             draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
     draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
 
-# -------------------------------
-# 加上訊息文字
-# -------------------------------
 if add_message and final_message:
     try:
         font = ImageFont.truetype(FONT_PATH, size=64)
@@ -108,7 +100,6 @@ if add_message and final_message:
     x = (fw - tw) // 2
     y = fh - th - padding * 3
 
-    # 黑色透明背景
     overlay = Image.new("RGBA", composed.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
     overlay_draw.rounded_rectangle(
@@ -118,14 +109,27 @@ if add_message and final_message:
     )
     composed = Image.alpha_composite(composed, overlay)
 
-    # 白字 + 紅框
     draw = ImageDraw.Draw(composed)
     draw_text_with_outline(draw, x, y - 10, final_message, font)
 
 # -------------------------------
 # 顯示預覽
 # -------------------------------
+st.subheader("🖼️ 合成預覽")
 st.image(composed, caption="合成預覽", use_column_width=True)
+
+# -------------------------------
+# 扁平化調整面板（在預覽下方）
+# -------------------------------
+st.subheader("⚙️ 圖片調整")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
+with col2:
+    offset_x = st.slider("水平移動", -500, 500, 0, key="offset_x")
+with col3:
+    offset_y = st.slider("垂直移動", -500, 500, 0, key="offset_y")
 
 # -------------------------------
 # 下載按鈕
