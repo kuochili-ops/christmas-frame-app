@@ -39,44 +39,34 @@ frame = Image.open(frame_path).convert("RGBA")
 fw, fh = frame.size
 
 # -------------------------------
-# 控制面板（在下方）
+# 先顯示合成預覽（在上方）
 # -------------------------------
-col1, col2, col3 = st.columns(3)
-with col1:
-    scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
-with col2:
-    offset_x = st.slider("水平移動", -500, 500, 0, key="offset_x")
-with col3:
-    offset_y = st.slider("垂直移動", -500, 500, 0, key="offset_y")
+st.subheader("🖼️ 合成預覽")
 
-custom_message = st.text_input("訊息文字（留空則使用今日訊息）", "")
-final_message = custom_message if custom_message.strip() else message_today
+# 預設值
+scale = 100
+offset_x = 0
+offset_y = 0
 
-# -------------------------------
-# 處理使用者圖片（維持比例縮放）
-# -------------------------------
 user_img = Image.open(uploaded).convert("RGBA")
 uw, uh = user_img.size
 
 scale_factor = scale / 100
 new_w = int(uw * scale_factor)
-new_h = int(uh * scale_factor)   # ✅ 維持原始比例
+new_h = int(uh * scale_factor)
 resized = user_img.resize((new_w, new_h), Image.LANCZOS)
 
-# 建立空白畫布
 canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
 paste_x = (fw - new_w) // 2 + offset_x
 paste_y = (fh - new_h) // 2 + offset_y
 canvas.paste(resized, (paste_x, paste_y), resized)
 
-# -------------------------------
-# 套上邊框
-# -------------------------------
 composed = Image.alpha_composite(canvas, frame)
 
-# -------------------------------
 # 加上訊息文字
-# -------------------------------
+custom_message = st.text_input("訊息文字（留空則使用今日訊息）", "")
+final_message = custom_message if custom_message.strip() else message_today
+
 def draw_text_with_outline(draw, x, y, text, font):
     outline_color = (255, 0, 0, 255)
     for dx in [-2, -1, 0, 1, 2]:
@@ -118,11 +108,20 @@ if add_message and final_message:
     draw = ImageDraw.Draw(composed)
     draw_text_with_outline(draw, x, y - 10, final_message, font)
 
-# -------------------------------
-# 顯示預覽（在上方）
-# -------------------------------
-st.subheader("🖼️ 合成預覽")
+# 顯示預覽
 st.image(composed, caption="合成預覽", use_column_width=True)
+
+# -------------------------------
+# 控制面板（在下方）
+# -------------------------------
+st.subheader("⚙️ 圖片調整")
+col1, col2, col3 = st.columns(3)
+with col1:
+    scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
+with col2:
+    offset_x = st.slider("水平移動", -500, 500, 0, key="offset_x")
+with col3:
+    offset_y = st.slider("垂直移動", -500, 500, 0, key="offset_y")
 
 # -------------------------------
 # 下載按鈕
