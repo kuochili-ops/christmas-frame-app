@@ -10,7 +10,7 @@ st.set_page_config(page_title="聖誕相片邊框生成器", page_icon="🎄", l
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 FRAME_VERTICAL_PATH = os.path.join(ASSETS_DIR, "frame_vertical.png")
 FRAME_HORIZONTAL_PATH = os.path.join(ASSETS_DIR, "frame_horizontal.png")
-FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-VariableFont_wght.ttf")
+FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-Regular.ttf")
 
 st.title("🎄 聖誕相片邊框生成器")
 st.caption("上傳照片 → 套用邊框 → 自動顯示聖誕/新年倒數或祝福")
