@@ -41,9 +41,6 @@ fw, fh = frame.size
 # -------------------------------
 # 控制面板（在下方）
 # -------------------------------
-st.subheader("🖼️ 合成預覽")
-
-# 預設 slider 值
 col1, col2, col3 = st.columns(3)
 with col1:
     scale = st.slider("縮放 (%)", 50, 200, 100, key="scale")
@@ -124,6 +121,7 @@ if add_message and final_message:
 # -------------------------------
 # 顯示預覽（在上方）
 # -------------------------------
+st.subheader("🖼️ 合成預覽")
 st.image(composed, caption="合成預覽", use_column_width=True)
 
 # -------------------------------
