@@ -13,7 +13,7 @@ FRAME_HORIZONTAL_PATH = os.path.join(ASSETS_DIR, "frame_horizontal.png")
 FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-Regular.ttf")
 
 st.title("🎄 聖誕相片邊框生成器")
-st.caption("上傳照片 → 手指拖曳縮放旋轉 → 套用邊框 → 自動顯示聖誕/新年祝福")
+st.caption("上傳照片 → 切換排版模式 → 手指拖曳縮放旋轉 → 套用邊框 → 自動顯示祝福")
 
 # 今日訊息
 tz_offset_hours = 8
@@ -23,6 +23,9 @@ message_today = get_message_for_today(now_taipei.date())
 orientation = st.selectbox("邊框方向", ["直式", "橫式"])
 add_message = st.checkbox("加上訊息文字圖層", value=True)
 uploaded = st.file_uploader("上傳照片（JPG/PNG）", type=["jpg", "jpeg", "png"])
+
+# 新增排版模式選項
+edit_mode = st.checkbox("進入照片排版模式", value=False)
 
 if not uploaded:
     st.info("請先上傳照片")
@@ -117,59 +120,63 @@ st.download_button(
 # -------------------------------
 # 加入前端 JS：支援手機觸控拖曳 + 縮放 + 旋轉
 # -------------------------------
-drag_zoom_js = """
+drag_zoom_js = f"""
 <script>
 const img = document.querySelector('img[alt="合成預覽"]');
 let posX = 0, posY = 0, scale = 1.0, rotation = 0;
 let startX = 0, startY = 0, dragging = false;
 let lastDist = 0, lastAngle = 0;
+let editMode = {"true" if edit_mode else "false"};
 
 // 滑鼠拖曳
-img.addEventListener("mousedown", (e) => {
+img.addEventListener("mousedown", (e) => {{
+  if (!editMode) return;
   dragging = true;
   startX = e.clientX - posX;
   startY = e.clientY - posY;
-});
+}});
 document.addEventListener("mouseup", () => dragging = false);
-document.addEventListener("mousemove", (e) => {
-  if (!dragging) return;
+document.addEventListener("mousemove", (e) => {{
+  if (!dragging || !editMode) return;
   posX = e.clientX - startX;
   posY = e.clientY - startY;
   img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
-});
+}});
 
 // 滾輪縮放
-img.addEventListener("wheel", (e) => {
+img.addEventListener("wheel", (e) => {{
+  if (!editMode) return;
   e.preventDefault();
   const delta = e.deltaY > 0 ? -0.05 : 0.05;
   scale = Math.min(Math.max(0.3, scale + delta), 3.0);
   img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
-});
+}});
 
 // 手機觸控
-img.addEventListener("touchmove", (e) => {
+img.addEventListener("touchmove", (e) => {{
+  if (!editMode) return;
   e.preventDefault();
-  if (e.touches.length === 1) {
+  if (e.touches.length === 1) {{
     posX += e.touches[0].movementX || 0;
     posY += e.touches[0].movementY || 0;
-  } else if (e.touches.length === 2) {
+  }} else if (e.touches.length === 2) {{
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const angle = Math.atan2(dy, dx) * (180/Math.PI);
 
-    if (lastDist) {
+    if (lastDist) {{
       scale *= dist / lastDist;
-    }
-    if (lastAngle) {
+    }}
+    if (lastAngle) {{
       rotation += angle - lastAngle;
-    }
+    }}
     lastDist = dist;
     lastAngle = angle;
-  }
+  }}
   img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
-});
-img.addEventListener("touchend", () => { lastDist = 0; lastAngle = 0; });
+}});
+img.addEventListener("touchend", () => {{ lastDist = 0; lastAngle = 0; }});
 </script>
 """
 st.markdown(drag_zoom_js, unsafe_allow_html=True)
