@@ -22,9 +22,20 @@ tz_offset_hours = 8  # Taipei UTC+8
 now_taipei = datetime.now(timezone.utc) + timedelta(hours=tz_offset_hours)
 message = get_message_for_today(now_taipei.date())
 
+# 🔍 Debug：顯示今日訊息
+st.write("今日訊息：", message)
+
 uploaded = st.file_uploader("上傳照片（JPG/PNG）", type=["jpg", "jpeg", "png"])
 frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
-frame = Image.open(frame_path).convert("RGBA")
+
+# 🔍 Debug：確認邊框路徑是否存在
+st.write("載入邊框檔案：", frame_path, "存在？", os.path.exists(frame_path))
+
+try:
+    frame = Image.open(frame_path).convert("RGBA")
+except Exception as e:
+    st.error(f"無法載入邊框圖片：{e}")
+    st.stop()
 
 if uploaded:
     user_img = Image.open(uploaded).convert("RGBA")
@@ -65,11 +76,18 @@ if uploaded:
         text_bbox = draw.textbbox((0, 0), message, font=font)
         tw, th = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
         padding = int(fh * 0.02)
-        x, y = (fw - tw) // 2, fh - th - padding
+        # 🔍 Debug：顯示文字位置
+        st.write("文字位置：", (fw - tw) // 2, fh - th - padding)
+
+        x, y = (fw - tw) // 2, fh - th - padding*3  # 往上移一點，避免被邊框遮住
 
         overlay = Image.new("RGBA", composed.size, (0, 0, 0, 0))
         overlay_draw = ImageDraw.Draw(overlay)
-        overlay_draw.rounded_rectangle((x-20, y-10, x+tw+20, y+th+10), radius=20, fill=(0,0,0,120))
+        overlay_draw.rounded_rectangle(
+            (x-20, y-10, x+tw+20, y+th+10),
+            radius=20,
+            fill=(0,0,0,120)
+        )
         composed = Image.alpha_composite(composed, overlay)
 
         draw.text((x, y), message, font=font, fill=(255,255,255,255))
