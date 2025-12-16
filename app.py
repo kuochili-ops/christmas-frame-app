@@ -15,21 +15,21 @@ FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-Regular.ttf")
 st.title("🎄 聖誕相片邊框生成器")
 st.caption("上傳照片 → 套用邊框 → 自動顯示聖誕/新年倒數或祝福")
 
-orientation = st.sidebar.selectbox("邊框方向", ["直式", "橫式"])
-add_message = st.sidebar.checkbox("加上訊息文字圖層", value=True)
+orientation = st.selectbox("邊框方向", ["直式", "橫式"])
+add_message = st.checkbox("加上訊息文字圖層", value=True)
 
 tz_offset_hours = 8  # Taipei UTC+8
 now_taipei = datetime.now(timezone.utc) + timedelta(hours=tz_offset_hours)
 message = get_message_for_today(now_taipei.date())
 
 # 🔍 Debug：顯示今日訊息
-st.write("今日訊息：", message)
+st.write("✅ Debug 今日訊息：", repr(message))
 
 uploaded = st.file_uploader("上傳照片（JPG/PNG）", type=["jpg", "jpeg", "png"])
 frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
 
 # 🔍 Debug：確認邊框路徑是否存在
-st.write("載入邊框檔案：", frame_path, "存在？", os.path.exists(frame_path))
+st.write("✅ 載入邊框檔案：", frame_path, "存在？", os.path.exists(frame_path))
 
 try:
     frame = Image.open(frame_path).convert("RGBA")
@@ -60,10 +60,12 @@ if uploaded:
     composed = Image.alpha_composite(crop, frame)
 
     if add_message and message:
-        draw = ImageDraw.Draw(composed)
+        # 🔍 Debug：字型載入狀態
         try:
             font = ImageFont.truetype(FONT_PATH, size=64)
-        except Exception:
+            st.write("✅ 字型載入成功：", FONT_PATH)
+        except Exception as e:
+            st.write("⚠️ 字型載入失敗，使用預設字型：", e)
             font = ImageFont.load_default()
 
         max_text_width = int(composed.width * 0.8)
@@ -73,13 +75,13 @@ if uploaded:
         except Exception:
             font = ImageFont.load_default()
 
-        text_bbox = draw.textbbox((0, 0), message, font=font)
+        text_bbox = ImageDraw.Draw(composed).textbbox((0, 0), message, font=font)
         tw, th = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
         padding = int(fh * 0.02)
-        # 🔍 Debug：顯示文字位置
-        st.write("文字位置：", (fw - tw) // 2, fh - th - padding)
+        x, y = (fw - tw) // 2, fh - th - padding * 3
 
-        x, y = (fw - tw) // 2, fh - th - padding*3  # 往上移一點，避免被邊框遮住
+        # 🔍 Debug：文字座標
+        st.write("✅ 文字座標：", (x, y), "文字寬高：", (tw, th))
 
         overlay = Image.new("RGBA", composed.size, (0, 0, 0, 0))
         overlay_draw = ImageDraw.Draw(overlay)
@@ -90,6 +92,8 @@ if uploaded:
         )
         composed = Image.alpha_composite(composed, overlay)
 
+        # 🔑 重新建立 draw，確保文字畫在黑框上方
+        draw = ImageDraw.Draw(composed)
         draw.text((x, y), message, font=font, fill=(255,255,255,255))
 
     st.image(composed, caption=f"{orientation}邊框 + 訊息", use_column_width=True)
