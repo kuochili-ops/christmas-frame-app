@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from utils import get_message_for_today, fit_text_to_width
+import base64
 
 st.set_page_config(page_title="聖誕相片邊框生成器", page_icon="🎄", layout="wide")
 
@@ -42,21 +43,9 @@ fw, fh = frame.size
 # 使用者圖片
 user_img = Image.open(uploaded).convert("RGBA")
 
-# 預設縮放與位移（由 JS 控制）
-scale_factor = 1.0
-offset_x = 0
-offset_y = 0
-
-uw, uh = user_img.size
-new_w = int(uw * scale_factor)
-new_h = int(uh * scale_factor)
-resized = user_img.resize((new_w, new_h), Image.LANCZOS)
-
+# 合成（初始狀態）
 canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
-paste_x = (fw - new_w) // 2 + offset_x
-paste_y = (fh - new_h) // 2 + offset_y
-canvas.paste(resized, (paste_x, paste_y), resized)
-
+canvas.paste(user_img.resize((fw, fh), Image.LANCZOS), (0, 0))
 composed = Image.alpha_composite(canvas, frame)
 
 # 加上訊息文字
@@ -104,83 +93,54 @@ if add_message and final_message:
     draw = ImageDraw.Draw(composed)
     draw_text_with_outline(draw, x, y - 10, final_message, font)
 
-# 顯示預覽
-st.image(composed, caption="合成預覽", use_column_width=True)
-
-# 下載按鈕
+# 轉成 base64 供前端顯示
 buf = io.BytesIO()
 composed.save(buf, format="PNG")
+img_b64 = base64.b64encode(buf.getvalue()).decode()
+
+# 顯示圖片容器（可互動）
+html_code = f"""
+<div id="photo-container" style="width:100%;text-align:center;overflow:hidden;">
+  <img id="edit-img" src="data:image/png;base64,{img_b64}" 
+       style="max-width:100%;touch-action:none;transform-origin:center center;" />
+</div>
+
+<script>
+const img = document.getElementById("edit-img");
+let posX=0,posY=0,scale=1.0,rotation=0;
+let lastDist=0,lastAngle=0;
+let editMode = {"true" if edit_mode else "false"};
+
+function updateTransform(){{
+  img.style.transform = "translate("+posX+"px,"+posY+"px) scale("+scale+") rotate("+rotation+"deg)";
+}}
+
+img.addEventListener("touchmove",(e)=>{{
+  if(!editMode) return;
+  e.preventDefault();
+  if(e.touches.length===1){{
+    posX += e.touches[0].movementX||0;
+    posY += e.touches[0].movementY||0;
+  }} else if(e.touches.length===2){{
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const angle=Math.atan2(dy,dx)*(180/Math.PI);
+    if(lastDist) scale *= dist/lastDist;
+    if(lastAngle) rotation += angle-lastAngle;
+    lastDist=dist; lastAngle=angle;
+  }}
+  updateTransform();
+}});
+img.addEventListener("touchend",()=>{{lastDist=0;lastAngle=0;}});
+</script>
+"""
+st.markdown(html_code, unsafe_allow_html=True)
+
+# 下載按鈕
 st.download_button(
     "下載合成圖片",
     data=buf.getvalue(),
     file_name="christmas_output.png",
     mime="image/png"
 )
-
-# -------------------------------
-# 加入前端 JS：支援手機觸控拖曳 + 縮放 + 旋轉（僅在排版模式下）
-# -------------------------------
-drag_zoom_js = f"""
-<script>
-const img = document.querySelector('img[alt="合成預覽"]');
-let posX = 0, posY = 0, scale = 1.0, rotation = 0;
-let startX = 0, startY = 0, dragging = false;
-let lastDist = 0, lastAngle = 0;
-let editMode = {"true" if edit_mode else "false"};
-
-function updateTransform() {{
-  img.style.transform = "translate(" + posX + "px," + posY + "px) scale(" + scale + ") rotate(" + rotation + "deg)";
-}}
-
-// 滑鼠拖曳
-img.addEventListener("mousedown", (e) => {{
-  if (!editMode) return;
-  dragging = true;
-  startX = e.clientX - posX;
-  startY = e.clientY - posY;
-}});
-document.addEventListener("mouseup", () => dragging = false);
-document.addEventListener("mousemove", (e) => {{
-  if (!dragging || !editMode) return;
-  posX = e.clientX - startX;
-  posY = e.clientY - startY;
-  updateTransform();
-}});
-
-// 滾輪縮放
-img.addEventListener("wheel", (e) => {{
-  if (!editMode) return;
-  e.preventDefault();
-  const delta = e.deltaY > 0 ? -0.05 : 0.05;
-  scale = Math.min(Math.max(0.3, scale + delta), 3.0);
-  updateTransform();
-}});
-
-// 手機觸控
-img.addEventListener("touchmove", (e) => {{
-  if (!editMode) return;
-  e.preventDefault();
-  if (e.touches.length === 1) {{
-    posX += e.touches[0].movementX || 0;
-    posY += e.touches[0].movementY || 0;
-  }} else if (e.touches.length === 2) {{
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const angle = Math.atan2(dy, dx) * (180/Math.PI);
-
-    if (lastDist) {{
-      scale *= dist / lastDist;
-    }}
-    if (lastAngle) {{
-      rotation += angle - lastAngle;
-    }}
-    lastDist = dist;
-    lastAngle = angle;
-  }}
-  updateTransform();
-}});
-img.addEventListener("touchend", () => {{ lastDist = 0; lastAngle = 0; }});
-</script>
-"""
-st.markdown(drag_zoom_js, unsafe_allow_html=True)
