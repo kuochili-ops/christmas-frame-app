@@ -5,9 +5,6 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 from utils import get_message_for_today, fit_text_to_width
 
-# -------------------------------
-# Streamlit 基本設定
-# -------------------------------
 st.set_page_config(page_title="聖誕相片邊框生成器", page_icon="🎄", layout="wide")
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
@@ -16,144 +13,163 @@ FRAME_HORIZONTAL_PATH = os.path.join(ASSETS_DIR, "frame_horizontal.png")
 FONT_PATH = os.path.join(ASSETS_DIR, "NotoSansTC-Regular.ttf")
 
 st.title("🎄 聖誕相片邊框生成器")
-st.caption("上傳照片 → 調整位置 → 套用邊框 → 自動顯示聖誕/新年祝福")
+st.caption("上傳照片 → 手指拖曳縮放旋轉 → 套用邊框 → 自動顯示聖誕/新年祝福")
 
-# -------------------------------
-# 取得今日訊息
-# -------------------------------
+# 今日訊息
 tz_offset_hours = 8
 now_taipei = datetime.now(timezone.utc) + timedelta(hours=tz_offset_hours)
 message_today = get_message_for_today(now_taipei.date())
 
-# -------------------------------
-# 左右分欄 UI
-# -------------------------------
-left, right = st.columns([1, 2])
+orientation = st.selectbox("邊框方向", ["直式", "橫式"])
+add_message = st.checkbox("加上訊息文字圖層", value=True)
+uploaded = st.file_uploader("上傳照片（JPG/PNG）", type=["jpg", "jpeg", "png"])
 
-with left:
-    st.subheader("⚙️ 編輯設定")
-
-    orientation = st.selectbox("邊框方向", ["直式", "橫式"])
-    add_message = st.checkbox("加上訊息文字圖層", value=True)
-
-    uploaded = st.file_uploader("上傳照片（JPG/PNG）", type=["jpg", "jpeg", "png"])
-
-    if uploaded:
-        st.markdown("### 🔍 圖片調整")
-
-        scale = st.slider("縮放比例（%）", 50, 200, 100)
-        offset_x = st.slider("水平移動", -500, 500, 0)
-        offset_y = st.slider("垂直移動", -500, 500, 0)
-
-        custom_message = st.text_input("自訂訊息（留空則使用今日訊息）", "")
-        final_message = custom_message if custom_message.strip() else message_today
-
-# -------------------------------
-# 右側預覽區
-# -------------------------------
-with right:
-    st.subheader("🖼️ 預覽")
-
-    if not uploaded:
-        st.info("請先上傳照片")
-        frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
-        frame = Image.open(frame_path).convert("RGBA")
-        st.image(frame, caption="邊框示意", use_column_width=True)
-        st.stop()
-
-    # -------------------------------
-    # 載入邊框
-    # -------------------------------
+if not uploaded:
+    st.info("請先上傳照片")
     frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
     frame = Image.open(frame_path).convert("RGBA")
-    fw, fh = frame.size
+    st.image(frame, caption="邊框示意", use_column_width=True)
+    st.stop()
 
-    # -------------------------------
-    # 處理使用者圖片（縮放 + 移動）
-    # -------------------------------
-    user_img = Image.open(uploaded).convert("RGBA")
-    uw, uh = user_img.size
+# 載入邊框
+frame_path = FRAME_VERTICAL_PATH if orientation == "直式" else FRAME_HORIZONTAL_PATH
+frame = Image.open(frame_path).convert("RGBA")
+fw, fh = frame.size
 
-    scale_factor = scale / 100
-    new_w = int(uw * scale_factor)
-    new_h = int(uh * scale_factor)
-    resized = user_img.resize((new_w, new_h), Image.LANCZOS)
+# 使用者圖片
+user_img = Image.open(uploaded).convert("RGBA")
 
-    # 建立空白畫布
-    canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
+# 預設縮放與位移（由 JS 控制）
+scale_factor = 1.0
+offset_x = 0
+offset_y = 0
 
-    paste_x = (fw - new_w) // 2 + offset_x
-    paste_y = (fh - new_h) // 2 + offset_y
+uw, uh = user_img.size
+new_w = int(uw * scale_factor)
+new_h = int(uh * scale_factor)
+resized = user_img.resize((new_w, new_h), Image.LANCZOS)
 
-    canvas.paste(resized, (paste_x, paste_y), resized)
+canvas = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
+paste_x = (fw - new_w) // 2 + offset_x
+paste_y = (fh - new_h) // 2 + offset_y
+canvas.paste(resized, (paste_x, paste_y), resized)
 
-    # -------------------------------
-    # 套上邊框
-    # -------------------------------
-    composed = Image.alpha_composite(canvas, frame)
+composed = Image.alpha_composite(canvas, frame)
 
-    # -------------------------------
-    # 白字 + 紅色描邊
-    # -------------------------------
-    def draw_text_with_outline(draw, x, y, text, font):
-        outline_color = (255, 0, 0, 255)
-        for dx in [-2, -1, 0, 1, 2]:
-            for dy in [-2, -1, 0, 1, 2]:
-                draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
-        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+# 加上訊息文字
+custom_message = st.text_input("自訂訊息（留空則使用今日訊息）", "")
+final_message = custom_message if custom_message.strip() else message_today
 
-    # -------------------------------
-    # 加上訊息文字
-    # -------------------------------
-    if add_message and final_message:
-        try:
-            font = ImageFont.truetype(FONT_PATH, size=64)
-        except:
-            font = ImageFont.load_default()
+def draw_text_with_outline(draw, x, y, text, font):
+    outline_color = (255, 0, 0, 255)
+    for dx in [-2, -1, 0, 1, 2]:
+        for dy in [-2, -1, 0, 1, 2]:
+            draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
+    draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
 
-        max_text_width = int(composed.width * 0.8)
-        font_size = fit_text_to_width(final_message, max_text_width, FONT_PATH, 64)
+if add_message and final_message:
+    try:
+        font = ImageFont.truetype(FONT_PATH, size=64)
+    except:
+        font = ImageFont.load_default()
 
-        try:
-            font = ImageFont.truetype(FONT_PATH, size=font_size)
-        except:
-            font = ImageFont.load_default()
+    max_text_width = int(composed.width * 0.8)
+    font_size = fit_text_to_width(final_message, max_text_width, FONT_PATH, 64)
 
-        draw = ImageDraw.Draw(composed)
-        text_bbox = draw.textbbox((0, 0), final_message, font=font)
-        tw, th = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
+    try:
+        font = ImageFont.truetype(FONT_PATH, size=font_size)
+    except:
+        font = ImageFont.load_default()
 
-        padding = int(fh * 0.02)
-        x = (fw - tw) // 2
-        y = fh - th - padding * 3
+    draw = ImageDraw.Draw(composed)
+    text_bbox = draw.textbbox((0, 0), final_message, font=font)
+    tw, th = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
 
-        # 黑色透明背景
-        overlay = Image.new("RGBA", composed.size, (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-        overlay_draw.rounded_rectangle(
-            (x - 20, y - 10, x + tw + 20, y + th + 10),
-            radius=20,
-            fill=(0, 0, 0, 120)
-        )
-        composed = Image.alpha_composite(composed, overlay)
+    padding = int(fh * 0.02)
+    x = (fw - tw) // 2
+    y = fh - th - padding * 3
 
-        # 白字 + 紅框
-        draw = ImageDraw.Draw(composed)
-        draw_text_with_outline(draw, x, y - 10, final_message, font)
-
-    # -------------------------------
-    # 顯示預覽
-    # -------------------------------
-    st.image(composed, caption="合成預覽", use_column_width=True)
-
-    # -------------------------------
-    # 下載按鈕
-    # -------------------------------
-    buf = io.BytesIO()
-    composed.save(buf, format="PNG")
-    st.download_button(
-        "下載合成圖片",
-        data=buf.getvalue(),
-        file_name="christmas_output.png",
-        mime="image/png"
+    overlay = Image.new("RGBA", composed.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    overlay_draw.rounded_rectangle(
+        (x - 20, y - 10, x + tw + 20, y + th + 10),
+        radius=20,
+        fill=(0, 0, 0, 120)
     )
+    composed = Image.alpha_composite(composed, overlay)
+
+    draw = ImageDraw.Draw(composed)
+    draw_text_with_outline(draw, x, y - 10, final_message, font)
+
+# 顯示預覽
+st.image(composed, caption="合成預覽", use_column_width=True)
+
+# 下載按鈕
+buf = io.BytesIO()
+composed.save(buf, format="PNG")
+st.download_button(
+    "下載合成圖片",
+    data=buf.getvalue(),
+    file_name="christmas_output.png",
+    mime="image/png"
+)
+
+# -------------------------------
+# 加入前端 JS：支援手機觸控拖曳 + 縮放 + 旋轉
+# -------------------------------
+drag_zoom_js = """
+<script>
+const img = document.querySelector('img[alt="合成預覽"]');
+let posX = 0, posY = 0, scale = 1.0, rotation = 0;
+let startX = 0, startY = 0, dragging = false;
+let lastDist = 0, lastAngle = 0;
+
+// 滑鼠拖曳
+img.addEventListener("mousedown", (e) => {
+  dragging = true;
+  startX = e.clientX - posX;
+  startY = e.clientY - posY;
+});
+document.addEventListener("mouseup", () => dragging = false);
+document.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  posX = e.clientX - startX;
+  posY = e.clientY - startY;
+  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+});
+
+// 滾輪縮放
+img.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.05 : 0.05;
+  scale = Math.min(Math.max(0.3, scale + delta), 3.0);
+  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+});
+
+// 手機觸控
+img.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    posX += e.touches[0].movementX || 0;
+    posY += e.touches[0].movementY || 0;
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const angle = Math.atan2(dy, dx) * (180/Math.PI);
+
+    if (lastDist) {
+      scale *= dist / lastDist;
+    }
+    if (lastAngle) {
+      rotation += angle - lastAngle;
+    }
+    lastDist = dist;
+    lastAngle = angle;
+  }
+  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale}) rotate(${rotation}deg)`;
+});
+img.addEventListener("touchend", () => { lastDist = 0; lastAngle = 0; });
+</script>
+"""
+st.markdown(drag_zoom_js, unsafe_allow_html=True)
